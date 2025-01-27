@@ -59,3 +59,66 @@
         )
     )
 )
+
+;; Public functions
+
+;; Create a new prediction event
+(define-public (create-event (title (string-utf8 100)) (description (string-utf8 500)) (deadline uint))
+    (begin
+        (asserts! (is-eq tx-sender contract-owner) err-owner-only)
+        (let ((event-id (+ (var-get event-counter) u1)))
+            (begin
+                (var-set event-counter event-id)
+                (map-set events {event-id: event-id} {
+                    creator: tx-sender,
+                    title: title,
+                    description: description,
+                    deadline: deadline,
+                    resolved: false,
+                    outcome: none
+                })
+                (ok event-id)
+            )
+        )
+    )
+)
+
+;; Stake tokens on an event outcome
+(define-public (stake (event-id uint) (outcome (string-utf8 10)) (amount uint))
+    (begin
+        (asserts! (>= amount MIN_STAKE) err-invalid-stake)
+        (asserts! (or (is-eq outcome "Yes") (is-eq outcome "No")) err-invalid-event)
+        (let ((event (unwrap! (map-get? events {event-id: event-id}) err-invalid-event)))
+            (asserts! (not (get resolved event)) err-event-resolved)
+            (asserts! (> (get deadline event) block-height) err-event-resolved)
+            (try! (stx-transfer? amount tx-sender (as-contract tx-sender)))
+            (map-set stakes {event-id: event-id, participant: tx-sender} {amount: amount, outcome: outcome})
+            (update-total-stakes event-id outcome amount)
+            (ok true)
+        )
+    )
+)
+
+;; Resolve an event (only the event creator or a trusted oracle can resolve)
+(define-public (resolve-event (event-id uint) (outcome (string-utf8 10)))
+    (begin
+        (asserts! (or (is-eq outcome "Yes") (is-eq outcome "No")) err-invalid-event)
+        (let ((event (unwrap! (map-get? events {event-id: event-id}) err-invalid-event)))
+            (asserts! (or 
+                (is-eq tx-sender (get creator event)) 
+                (contract-call? .oracle-contract is-trusted-oracle tx-sender)
+            ) err-unauthorized)
+            (asserts! (not (get resolved event)) err-event-resolved)
+            (let ((totals (unwrap! (map-get? total-stakes {event-id: event-id}) err-invalid-event)))
+                (begin
+                    (map-set events {event-id: event-id} (merge event {resolved: true, outcome: (some outcome)}))
+                    (if (is-eq outcome "Yes")
+                        (distribute-winnings event-id "Yes" (get no totals))
+                        (distribute-winnings event-id "No" (get yes totals))
+                    )
+                    (ok true)
+                )
+            )
+        )
+    )
+)
