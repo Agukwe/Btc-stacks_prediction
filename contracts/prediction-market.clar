@@ -26,3 +26,36 @@
         outcome: (optional (string-utf8 10)) ;; "Yes" or "No"
     }
 )
+
+(define-map stakes
+    {event-id: uint, participant: principal}
+    {
+        amount: uint,
+        outcome: (string-utf8 10) ;; "Yes" or "No"
+    }
+)
+
+(define-map total-stakes
+    {event-id: uint}
+    {
+        yes: uint,
+        no: uint
+    }
+)
+
+;; Helper functions
+
+;; Calculate the fee amount
+(define-private (calculate-fee (amount uint))
+    (/ (* amount FEE_PERCENTAGE) u100)
+)
+
+;; Update total stakes for an event
+(define-private (update-total-stakes (event-id uint) (outcome (string-utf8 10)) (amount uint))
+    (let ((totals (default-to {yes: u0, no: u0} (map-get? total-stakes {event-id: event-id}))))
+        (if (is-eq outcome "Yes")
+            (map-set total-stakes {event-id: event-id} {yes: (+ (get yes totals) amount), no: (get no totals)})
+            (map-set total-stakes {event-id: event-id} {yes: (get yes totals), no: (+ (get no totals) amount)})
+        )
+    )
+)
