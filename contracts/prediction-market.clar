@@ -151,3 +151,11 @@
         (err err-invalid-event)
     )
 )
+
+;; Get participant's stake for an event
+(define-read-only (get-participant-stake (event-id uint) (participant principal))
+    (match (map-get? stakes {event-id: event-id, participant: participant})
+        stake (ok stake)
+        (err err-not-participant)
+    )
+)
