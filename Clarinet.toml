@@ -8,8 +8,8 @@ requirements = []
 path = "contracts/prediction-market.clar"
 depends_on = []
 
-[contracts."prediction-market.clar"]
-path = "contracts/prediction-market.clar.clar"
+[contracts.oracle-contract]
+path = "contracts/oracle-contract.clar"
 depends_on = []
 
 [repl]
