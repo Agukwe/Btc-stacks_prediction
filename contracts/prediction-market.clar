@@ -122,3 +122,40 @@
         )
     )
 )
+
+;; Distribute winnings to participants
+(define-private (distribute-winnings (event-id uint) (winning-outcome (string-utf8 10)) (losing-pool uint))
+    (let ((fee (calculate-fee losing-pool)))
+        (begin
+            (stx-transfer? fee (as-contract tx-sender) contract-owner)
+            (map-set total-stakes {event-id: event-id} {yes: u0, no: u0})
+            (ok true)
+        )
+    )
+)
+
+;; Read-only functions
+
+;; Get event details
+(define-read-only (get-event (event-id uint))
+    (match (map-get? events {event-id: event-id})
+        event (ok event)
+        (err err-invalid-event)
+    )
+)
+
+;; Get total stakes for an event
+(define-read-only (get-total-stakes (event-id uint))
+    (match (map-get? total-stakes {event-id: event-id})
+        totals (ok totals)
+        (err err-invalid-event)
+    )
+)
+
+;; Get participant's stake for an event
+(define-read-only (get-participant-stake (event-id uint) (participant principal))
+    (match (map-get? stakes {event-id: event-id, participant: participant})
+        stake (ok stake)
+        (err err-not-participant)
+    )
+)
